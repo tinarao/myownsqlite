@@ -1,9 +1,9 @@
-use std::{
-    io::{self, Write},
-    path::Path,
-};
+use std::{io, path::Path};
 
-use crate::Database;
+use crate::{
+    Database,
+    sql::{SqlCommand, parse_sql},
+};
 
 pub fn start_repl() -> io::Result<()> {
     let mut db = Database::open(Path::new("test.db"))?;
@@ -14,27 +14,44 @@ pub fn start_repl() -> io::Result<()> {
         print!("mos> ");
 
         let mut input = String::new();
-        io::stdin().read_line(&mut input);
+        io::stdin().read_line(&mut input)?;
         let input = input.trim();
 
-        match input.split_once(' ') {
-            Some(("set", rest)) => {
-                if let Some((k, v)) = rest.split_once(' ') {
-                    db.set(k, v)?;
+        match parse_sql(input) {
+            Some(SqlCommand::CreateTable { name, columns }) => {
+                if let Err(e) = db.create_table(&name, columns) {
+                    println!("Error: {}", e);
+                } else {
+                    println!("Table '{}' created", name);
+                }
+            }
+            Some(SqlCommand::Insert { table, values }) => {
+                if let Err(e) = db.insert_into(&table, values) {
+                    println!("Error: {}", e);
+                } else {
                     println!("OK");
                 }
             }
-            Some(("get", k)) => {
-                if let Some(v) = db.get(k) {
-                    println!("{}", v);
-                } else {
-                    println!("NOT FOUND");
+            Some(SqlCommand::Select {
+                table,
+                columns,
+                where_clause,
+            }) => {
+                let where_args = where_clause.map(|(col, val)| (col.to_string(), val.to_string()));
+                match db.select_from(&table, &columns, where_args) {
+                    Ok(rows) => {
+                        if rows.is_empty() {
+                            println!("(no rows)");
+                        } else {
+                            for row in rows {
+                                println!("{}", row.join(" | "));
+                            }
+                        }
+                    }
+                    Err(e) => println!("Error: {}", e),
                 }
             }
-            _ if input == "exit" => break,
-            _ => println!("unknown command! use: set <key> <value> | get <key> | exit"),
+            None => println!("Parse error"),
         }
     }
-
-    Ok(())
 }
