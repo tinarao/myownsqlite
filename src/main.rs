@@ -3,58 +3,75 @@ mod sql;
 
 use std::{
     collections::HashMap,
-    fs::{File, OpenOptions},
-    io::Read,
+    fs::OpenOptions,
+    io::{self, ErrorKind, Read, Write},
     path::Path,
 };
 
+use serde::{Deserialize, Serialize};
+
 use crate::repl::start_repl;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum DataType {
     Integer,
     Text,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Column {
     pub name: String,
     pub data_type: DataType,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Table {
     pub name: String,
     pub columns: Vec<Column>,
     pub rows: Vec<Vec<String>>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Database {
     tables: HashMap<String, Table>,
-    file: File,
 }
 
 impl Database {
-    pub fn open(path: &Path) -> Result<Self, std::io::Error> {
+    pub fn new() -> Self {
+        Database {
+            tables: HashMap::new(),
+        }
+    }
+
+    pub fn load(path: &Path) -> io::Result<Self> {
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
             .create(true)
             .open(path)?;
 
-        let mut contents = String::new();
-        file.read_to_string(&mut contents)?;
+        let mut data = Vec::new();
+        file.read_to_end(&mut data)?;
 
-        // let data = contents
-        //     .lines()
-        //     .filter_map(|line| line.split_once(":"))
-        //     .map(|(k, v)| (k.to_string(), v.to_string()))
-        //     .collect();
+        if data.is_empty() {
+            Ok(Database {
+                tables: HashMap::new(),
+            })
+        } else {
+            bincode::deserialize(&data).map_err(|e| io::Error::new(ErrorKind::InvalidData, e))
+        }
+    }
 
-        Ok(Database {
-            tables: HashMap::new(),
-            file,
-        })
+    pub fn save(&self, path: &Path) -> io::Result<()> {
+        let data = bincode::serialize(self).map_err(|e| io::Error::new(io::ErrorKind::Other, e))?;
+
+        let mut file = OpenOptions::new()
+            .write(true)
+            .truncate(true)
+            .create(true)
+            .open(path)?;
+
+        file.write_all(&data)
     }
 
     pub fn create_table(&mut self, name: &str, columns: Vec<Column>) -> Result<(), String> {

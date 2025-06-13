@@ -6,7 +6,7 @@ use crate::{
 };
 
 pub fn start_repl() -> io::Result<()> {
-    let mut db = Database::open(Path::new("test.db"))?;
+    let mut db = Database::load(Path::new("mos.db"))?;
 
     println!("my own sqlite");
 
@@ -16,6 +16,11 @@ pub fn start_repl() -> io::Result<()> {
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
         let input = input.trim();
+
+        if input == "exit" {
+            db.save(Path::new("mos.db"))?;
+            break;
+        }
 
         match parse_sql(input) {
             Some(SqlCommand::CreateTable { name, columns }) => {
@@ -54,4 +59,6 @@ pub fn start_repl() -> io::Result<()> {
             None => println!("Parse error"),
         }
     }
+
+    Ok(())
 }
