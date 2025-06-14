@@ -36,6 +36,8 @@ pub struct Database {
     tables: HashMap<String, Table>,
 }
 
+const DEFAULT_DB_PATH: &str = "mos.db";
+
 impl Database {
     pub fn new() -> Self {
         Database {
@@ -186,30 +188,48 @@ fn main() {
     start_repl();
 }
 
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-//     #[test]
-//     fn write() {
-//         // let key = "aboba";
-//         // let val = "aboba_val";
+    #[test]
+    fn primary_functions() {
+        let db_path = Path::new(&DEFAULT_DB_PATH);
+        let mut db = match Database::load(db_path) {
+            Ok(d) => d,
+            Err(e) => panic!("{}", e),
+        };
 
-//         // let path = Path::new("db.db");
-//         // let mut db = match Database::open(path) {
-//         //     Ok(d) => d,
-//         //     Err(e) => panic!("{}", e),
-//         // };
+        let cols: Vec<Column> = vec![
+            Column {
+                name: "id".to_string(),
+                data_type: DataType::Integer,
+            },
+            Column {
+                name: "email".to_string(),
+                data_type: DataType::Text,
+            },
+        ];
 
-//         // if let Err(e) = db.set(key, val) {
-//         //     panic!("{}", e)
-//         // }
+        match db.create_table("jobs", cols) {
+            Ok(()) => {}
+            Err(e) => panic!("{}", e),
+        };
 
-//         // match db.get(key) {
-//         //     Some(v) => {
-//         //         assert_eq!(val, v);
-//         //     }
-//         //     None => panic!("returned None"),
-//         // };
-//     }
-// }
+        let test_email = "example@main.rs".to_string();
+        let values = vec![1.to_string(), test_email.clone()];
+        match db.insert_into("jobs", values) {
+            Ok(()) => {}
+            Err(e) => panic!("{}", e),
+        };
+
+        let values = db.select_from(
+            "jobs",
+            &["email".to_string()],
+            Some(("id".to_string(), "1".to_string())),
+        );
+
+        let email = &values.unwrap()[0][0];
+        assert_eq!(email, &test_email);
+    }
+}

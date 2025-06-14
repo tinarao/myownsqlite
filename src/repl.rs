@@ -1,24 +1,24 @@
 use std::{io, path::Path};
 
 use crate::{
-    Database,
+    DEFAULT_DB_PATH, Database,
     sql::{SqlCommand, parse_sql},
 };
 
 pub fn start_repl() -> io::Result<()> {
-    let mut db = Database::load(Path::new("mos.db"))?;
+    let mut db = Database::load(Path::new(&DEFAULT_DB_PATH))?;
 
     println!("my own sqlite");
 
     loop {
-        print!("mos> ");
+        println!("{}> ", DEFAULT_DB_PATH);
 
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
         let input = input.trim();
 
         if input == "exit" {
-            db.save(Path::new("mos.db"))?;
+            db.save(Path::new(&DEFAULT_DB_PATH))?;
             break;
         }
 
@@ -29,6 +29,7 @@ pub fn start_repl() -> io::Result<()> {
                 } else {
                     println!("Table '{}' created", name);
                 }
+                db.save(Path::new(&DEFAULT_DB_PATH))?;
             }
             Some(SqlCommand::Insert { table, values }) => {
                 if let Err(e) = db.insert_into(&table, values) {
@@ -36,6 +37,8 @@ pub fn start_repl() -> io::Result<()> {
                 } else {
                     println!("OK");
                 }
+
+                db.save(Path::new(&DEFAULT_DB_PATH))?;
             }
             Some(SqlCommand::Select {
                 table,
