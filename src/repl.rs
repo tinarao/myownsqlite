@@ -11,7 +11,7 @@ pub fn start_repl() -> io::Result<()> {
     println!("my own sqlite");
 
     loop {
-        println!("{}> ", DEFAULT_DB_PATH);
+        print!("{}> ", DEFAULT_DB_PATH);
 
         let mut input = String::new();
         io::stdin().read_line(&mut input)?;
